@@ -31,15 +31,14 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
     await this.getSettings();
     const foodCount = await this.db.foods.count();
     if (foodCount === 0) {
-      const now = new Date().toISOString();
-      await this.db.foods.bulkPut(
-        SEED_FOODS.map((food) => ({
-          ...food,
-          id: generateId("food"),
-          createdAt: now,
-          updatedAt: now,
-        })),
-      );
+      await this.seedFoods();
+      return;
+    }
+
+    const existingFoods = await this.db.foods.toArray();
+    if (isLegacyDemoFoodSet(existingFoods)) {
+      await this.db.foods.clear();
+      await this.seedFoods();
     }
   }
 
@@ -162,10 +161,28 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
     });
     await this.initialize();
   }
+
+  private async seedFoods(): Promise<void> {
+    const now = new Date().toISOString();
+    await this.db.foods.bulkPut(
+      SEED_FOODS.map((food) => ({
+        ...food,
+        id: generateId("food"),
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
+  }
 }
 
 function sortRecords(a: IntakeRecord, b: IntakeRecord): number {
   return a.hour - b.hour || (a.minute ?? 0) - (b.minute ?? 0) || a.createdAt.localeCompare(b.createdAt);
+}
+
+function isLegacyDemoFoodSet(foods: FoodItem[]): boolean {
+  if (foods.length !== 6) return false;
+  const legacyNames = new Set(["水", "無糖高蛋白豆漿", "雞胸肉", "香蕉", "燕麥飯", "花椰菜"]);
+  return foods.every((food) => legacyNames.has(food.name));
 }
 
 export const repository = new DexieHealthRecordRepository();

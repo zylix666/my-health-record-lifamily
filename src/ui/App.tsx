@@ -403,7 +403,7 @@ function FoodPage({ foods, onChanged }: { foods: FoodItem[]; onChanged: () => Pr
   const emptyFood = (): FoodItem => ({
     id: generateId("food"),
     name: "",
-    category: "other",
+    category: FOOD_CATEGORIES[0],
     servingName: "1 份",
     servingAmount: 1,
     servingUnit: "serving",

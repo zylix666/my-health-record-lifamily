@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="健康紀錄">
+  <rect width="512" height="512" rx="96" fill="#18736f"/>
+  <path d="M256 98c-58 62-106 130-106 198 0 63 47 112 106 112s106-49 106-112c0-68-48-136-106-198z" fill="#d9fff5"/>
+  <path d="M190 288c24 11 43 15 66 15s42-4 66-15" fill="none" stroke="#18736f" stroke-width="28" stroke-linecap="round"/>
+  <path d="M226 220h60m-30-30v60" stroke="#18736f" stroke-width="24" stroke-linecap="round"/>
+</svg>

@@ -1,66 +1,66 @@
-# 手機離線安裝驗收
+﻿# Mobile Offline Install Checklist
 
-這個 app 是 PWA。手機要真正離線使用，第一次安裝必須透過 HTTPS 網址完成，因為 service worker 只能在 secure origin 註冊。
+This app is a PWA. For real offline use on a phone, the first install must happen from an HTTPS URL because service workers can only register on secure origins.
 
-`http://192.168.x.x:4173` 只能做手機畫面與功能測試，不能做離線安裝驗收。
+`http://192.168.x.x:4173` is useful for testing the UI on your phone, but it is not valid for offline PWA installation.
 
-## 最簡單驗收方式：部署 dist 到 HTTPS
+## Recommended Flow
 
-1. 在電腦建置：
+1. Build the app:
 
    ```powershell
    npm.cmd run build
    ```
 
-2. 把 `dist` 資料夾部署到任何 HTTPS 靜態網站服務。
+2. Deploy the `dist` folder to an HTTPS static host.
 
-   可用服務：
+   Good options:
 
    - Cloudflare Pages
    - Netlify
    - Vercel
    - GitHub Pages
 
-3. 用手機 Chrome 開啟 HTTPS 網址，例如：
+3. Open the HTTPS URL on the phone, for example:
 
    ```text
    https://your-health-record.pages.dev
    ```
 
-4. 進入 app 的「設定」，確認「離線狀態」顯示：
+4. Open Settings in the app and confirm the offline status says:
 
    ```text
-   安全來源：是
-   瀏覽器支援：是
-   快取服務：已啟用
+   Secure source: yes
+   Browser support: yes
+   Cache service: active
    ```
 
-5. 在 Chrome 選單選「安裝應用程式」或「加入主畫面」。
+5. In Chrome, choose Install app or Add to Home screen.
 
-6. 安裝後先從主畫面打開一次，等畫面完整載入。
+6. Launch Health Record once from the home screen and wait for the page to fully load.
 
-7. 開啟手機飛航模式。
+7. Turn on airplane mode.
 
-8. 再從主畫面打開「健康紀錄」。
+8. Launch Health Record again from the home screen.
 
-驗收成功時，即使沒有網路，app 仍會打開，既有資料也會從手機瀏覽器的 IndexedDB 讀出。
+The app should open without network access. Existing data is stored in the phone browser's IndexedDB.
 
-## 不要用這個方式驗收離線
+## What Does Not Work
 
 ```powershell
 npm.cmd run preview -- --host 192.168.x.x
 ```
 
-手機可以連上這個網址，也可能可以加入主畫面，但它是 HTTP LAN 位址。Chrome 不會讓 service worker 接管，因此電腦伺服器一停，手機捷徑就會失效。
+A phone can open this LAN URL, and Chrome may let you add it to the home screen, but it is still HTTP. Chrome will not allow the service worker to control and cache the app shell, so the shortcut stops working when the computer server is stopped.
 
-## 如果一定要在區網本機測 HTTPS
+## Local HTTPS Option
 
-可以，但手機必須信任本機 HTTPS 憑證。流程通常是：
+You can test through local HTTPS, but the phone must trust your local certificate. The usual flow is:
 
-1. 用 mkcert 或其他工具建立本機憑證。
-2. 把 root CA 安裝到手機並設定信任。
-3. 用 HTTPS server 服務 `dist`。
-4. 手機打開 `https://192.168.x.x`。
-5. 確認設定頁的「離線狀態」三項都是可用。
+1. Create a local HTTPS certificate with mkcert or a similar tool.
+2. Install and trust the root CA on the phone.
+3. Serve `dist` through HTTPS.
+4. Open `https://192.168.x.x` on the phone.
+5. Confirm the app Settings page says the offline status is active.
 
-這條路比較麻煩；正式測 MVP 建議直接部署到 HTTPS 靜態網站。
+This is more work than deploying to an HTTPS static host, so the recommended MVP path is Cloudflare Pages or another HTTPS host.

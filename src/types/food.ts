@@ -1,25 +1,50 @@
 export type FoodCategory =
-  | "staple"
-  | "protein"
+  | "dairy"
+  | "soy"
+  | "grain"
+  | "functional"
+  | "meat"
+  | "fish"
   | "vegetable"
   | "fruit"
-  | "beverage"
-  | "dairy"
   | "snack"
+  | "convenience"
+  | "beverage"
+  // Legacy categories kept so old local records/backups still render labels.
+  | "staple"
+  | "protein"
   | "other";
 
 export const FOOD_CATEGORY_LABELS: Record<FoodCategory, string> = {
-  staple: "主食",
-  protein: "蛋白質",
+  dairy: "乳製品",
+  soy: "豆類製品",
+  grain: "穀物主食",
+  functional: "機能食品",
+  meat: "肉類",
+  fish: "魚類",
   vegetable: "蔬菜",
   fruit: "水果",
   beverage: "飲品",
-  dairy: "乳製品",
-  snack: "點心",
+  snack: "零食點心",
+  convenience: "便利商店",
+  staple: "主食",
+  protein: "蛋白質",
   other: "其他",
 };
 
-export const FOOD_CATEGORIES = Object.keys(FOOD_CATEGORY_LABELS) as FoodCategory[];
+export const FOOD_CATEGORIES: FoodCategory[] = [
+  "dairy",
+  "soy",
+  "grain",
+  "functional",
+  "meat",
+  "fish",
+  "vegetable",
+  "fruit",
+  "snack",
+  "convenience",
+  "beverage",
+];
 
 export type ServingUnit = "ml" | "g" | "piece" | "bottle" | "cup" | "bowl" | "serving";
 

@@ -244,6 +244,42 @@ button:disabled {
   gap: 14px;
 }
 
+.food-editor {
+  scroll-margin-top: 88px;
+}
+
+.food-editor.editing {
+  border-color: #18736f;
+  box-shadow: 0 0 0 3px rgba(24, 115, 111, 0.14), 0 10px 24px rgba(43, 83, 78, 0.08);
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-header h2,
+.editor-header p {
+  margin: 0;
+}
+
+.editor-header h2 {
+  font-size: 18px;
+}
+
+.editor-header p {
+  margin-top: 4px;
+  color: #60736f;
+  font-weight: 600;
+}
+
+.active-edit {
+  background: #18736f;
+  color: #fff;
+}
+
 label {
   display: grid;
   gap: 6px;

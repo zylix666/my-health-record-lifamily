@@ -417,18 +417,37 @@ function FoodPage({ foods, onChanged }: { foods: FoodItem[]; onChanged: () => Pr
   const [filter, setFilter] = useState<FoodCategory | "all">("all");
   const [search, setSearch] = useState("");
   const visibleFoods = foods.filter((food) => (filter === "all" || food.category === filter) && food.name.includes(search));
+  const isEditing = foods.some((food) => food.id === draft.id);
+
+  function resetDraft() {
+    setDraft(emptyFood());
+  }
+
+  function startEditing(food: FoodItem) {
+    setDraft(food);
+    window.requestAnimationFrame(() => {
+      document.getElementById("food-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   async function saveFood() {
     if (!draft.name.trim()) return;
     const now = new Date().toISOString();
     await repository.saveFood({ ...draft, name: draft.name.trim(), updatedAt: now, createdAt: draft.createdAt || now });
-    setDraft(emptyFood());
+    resetDraft();
     await onChanged();
   }
 
   return (
     <section className="stack">
-      <div className="panel form-panel">
+      <div id="food-editor" className={`panel form-panel food-editor ${isEditing ? "editing" : ""}`}>
+        <div className="editor-header">
+          <div>
+            <h2>{isEditing ? "正在編輯食物" : "新增食物"}</h2>
+            <p>{isEditing ? draft.name || "未命名食物" : "填寫資料後加入食物庫"}</p>
+          </div>
+          {isEditing && <button className="secondary" type="button" onClick={resetDraft}>取消編輯</button>}
+        </div>
         <div className="two-col">
           <label>名稱<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
           <label>分類
@@ -446,12 +465,12 @@ function FoodPage({ foods, onChanged }: { foods: FoodItem[]; onChanged: () => Pr
           </label>
         </div>
         <div className="three-col">
-          <label>水 ml<input type="number" value={draft.waterMl} onChange={(event) => setDraft({ ...draft, waterMl: Number(event.target.value) })} /></label>
-          <label>纖維 g<input type="number" value={draft.fiberG} onChange={(event) => setDraft({ ...draft, fiberG: Number(event.target.value) })} /></label>
-          <label>蛋白質 g<input type="number" value={draft.proteinG} onChange={(event) => setDraft({ ...draft, proteinG: Number(event.target.value) })} /></label>
+          <label>水 ml<input type="number" value={draft.waterMl} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setDraft({ ...draft, waterMl: Number(event.target.value) })} /></label>
+          <label>纖維 g<input type="number" value={draft.fiberG} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setDraft({ ...draft, fiberG: Number(event.target.value) })} /></label>
+          <label>蛋白質 g<input type="number" value={draft.proteinG} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setDraft({ ...draft, proteinG: Number(event.target.value) })} /></label>
         </div>
         <label>備註<textarea rows={2} value={draft.note ?? ""} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></label>
-        <button type="button" onClick={saveFood}>{foods.some((food) => food.id === draft.id) ? "更新食物" : "新增食物"}</button>
+        <button type="button" onClick={saveFood}>{isEditing ? "更新食物" : "新增食物"}</button>
       </div>
       <div className="filter-row">
         <input placeholder="搜尋食物" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -469,7 +488,9 @@ function FoodPage({ foods, onChanged }: { foods: FoodItem[]; onChanged: () => Pr
               <small>水 {food.waterMl} ml · 纖維 {food.fiberG} g · 蛋白質 {food.proteinG} g</small>
             </div>
             <div className="row">
-              <button className="secondary" type="button" onClick={() => setDraft(food)}>編輯</button>
+              <button className={draft.id === food.id ? "active-edit" : "secondary"} type="button" onClick={() => startEditing(food)}>
+                {draft.id === food.id ? "編輯中" : "編輯"}
+              </button>
               <button className="danger" type="button" onClick={async () => {
                 if (window.confirm("刪除食物？既有歷史紀錄會保留。")) {
                   await repository.deleteFood(food.id);

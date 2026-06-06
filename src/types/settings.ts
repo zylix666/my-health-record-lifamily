@@ -7,6 +7,7 @@ export type AppSettings = {
   enableAfternoonGapCheck: boolean;
   afternoonGapCheckHour: 16;
   afternoonGapCheckMinute: 0;
+  hasSeededFoods: boolean;
 
   createdAt: string;
   updatedAt: string;
@@ -18,6 +19,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   enableAfternoonGapCheck: true,
   afternoonGapCheckHour: 16,
   afternoonGapCheckMinute: 0,
+  hasSeededFoods: false,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

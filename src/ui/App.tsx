@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -93,9 +93,16 @@ export function App() {
           <p className="eyebrow">健康紀錄</p>
           <h1>{pageTitle}</h1>
         </div>
-        <button className="ghost-button" type="button" onClick={() => setPage("foods")}>
-          食物庫
-        </button>
+        <div className="topbar-actions">
+          {page === "add" && (
+            <button type="submit" form="add-intake-form">
+              儲存紀錄
+            </button>
+          )}
+          <button className="ghost-button" type="button" onClick={() => setPage("foods")}>
+            食物庫
+          </button>
+        </div>
       </header>
 
       {message && <div className="toast">{message}</div>}
@@ -218,13 +225,13 @@ function DashboardPage({
   }
 
   return (
-    <section className="stack">
+    <section className="stack dashboard-stack">
       <div className="hero-panel">
         <div>
           <p>{currentDate}</p>
           <h2>{complete ? "今天三項目標都達成了" : "今天還可以再補一點"}</h2>
         </div>
-        <button type="button" onClick={() => onNavigate("add")}>新增</button>
+        <button type="button" onClick={() => onNavigate("add")}>新增攝取</button>
       </div>
       <MetricCards total={total} goal={state.goal} progress={progress} />
       {showGap && (
@@ -235,14 +242,13 @@ function DashboardPage({
             <Gap label="纖維" value={`${checkIn.fiberGapG} g`} />
             <Gap label="蛋白質" value={`${checkIn.proteinGapG} g`} />
           </div>
-          <div className="row">
+          <div className="row gap-actions">
             <button type="button" onClick={() => dismissGap(true)}>我看過了</button>
             <button className="secondary" type="button" onClick={() => dismissGap(false)}>今日略過</button>
           </div>
         </div>
       )}
       <div className="quick-actions">
-        <button type="button" onClick={() => onNavigate("add")}>新增攝取</button>
         <button type="button" onClick={() => onNavigate("daily")}>查看明細</button>
       </div>
     </section>
@@ -280,14 +286,18 @@ function Gap({ label, value }: { label: string; value: string }) {
 function AddPage({ foods, onSaved }: { foods: FoodItem[]; onSaved: () => Promise<void> }) {
   const [hour, setHour] = useState(new Date().getHours());
   const [category, setCategory] = useState<FoodCategory | "">("");
-  const [foodId, setFoodId] = useState("");
+  const [foodName, setFoodName] = useState("");
+  const [servingFoodId, setServingFoodId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState("");
   const filteredFoods = foods.filter((food) => food.category === category);
-  const selectedFood = foods.find((food) => food.id === foodId);
+  const foodGroups = groupFoodsByName(filteredFoods);
+  const selectedGroup = foodGroups.find((group) => group.name === foodName);
+  const selectedFood = selectedGroup?.foods.length === 1 ? selectedGroup.foods[0] : selectedGroup?.foods.find((food) => food.id === servingFoodId);
   const preview = selectedFood ? calculateRecordNutrition(selectedFood, quantity || 0) : { waterMl: 0, fiberG: 0, proteinG: 0 };
 
-  async function save() {
+  async function save(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     if (!selectedFood || quantity <= 0) return;
     const nowIso = new Date().toISOString();
     await repository.saveIntakeRecord(
@@ -305,24 +315,35 @@ function AddPage({ foods, onSaved }: { foods: FoodItem[]; onSaved: () => Promise
   }
 
   return (
-    <section className="panel form-panel">
+    <form id="add-intake-form" className="panel form-panel" onSubmit={save}>
       <label>時間
         <select value={hour} onChange={(event) => setHour(Number(event.target.value))}>
           {Array.from({ length: 24 }, (_, index) => <option key={index} value={index}>{formatHour(index)}</option>)}
         </select>
       </label>
       <label>分類
-        <select value={category} onChange={(event) => { setCategory(event.target.value as FoodCategory); setFoodId(""); }}>
+        <select value={category} onChange={(event) => { setCategory(event.target.value as FoodCategory); setFoodName(""); setServingFoodId(""); }}>
           <option value="">選擇分類</option>
           {FOOD_CATEGORIES.map((item) => <option key={item} value={item}>{FOOD_CATEGORY_LABELS[item]}</option>)}
         </select>
       </label>
       <label>食物
-        <select value={foodId} disabled={!category} onChange={(event) => setFoodId(event.target.value)}>
+        <select value={foodName} disabled={!category} onChange={(event) => { setFoodName(event.target.value); setServingFoodId(""); }}>
           <option value="">選擇食物</option>
-          {filteredFoods.map((food) => <option key={food.id} value={food.id}>{food.name} - {food.servingName}</option>)}
+          {foodGroups.map((group) => <option key={group.name} value={group.name}>{group.name}</option>)}
         </select>
       </label>
+      {selectedGroup && selectedGroup.foods.length > 1 && (
+        <label>份量選項
+          <select value={servingFoodId} onChange={(event) => setServingFoodId(event.target.value)}>
+            <option value="">選擇份量</option>
+            {selectedGroup.foods.map((food) => <option key={food.id} value={food.id}>{food.servingName}</option>)}
+          </select>
+        </label>
+      )}
+      {selectedGroup && selectedGroup.foods.length === 1 && (
+        <div className="hint">份量：{selectedGroup.foods[0].servingName}</div>
+      )}
       <label>份量
         <input min="0.1" step="0.1" type="number" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} />
       </label>
@@ -334,9 +355,22 @@ function AddPage({ foods, onSaved }: { foods: FoodItem[]; onSaved: () => Promise
       <label>備註
         <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} />
       </label>
-      <button type="button" disabled={!selectedFood || quantity <= 0} onClick={save}>儲存紀錄</button>
-    </section>
+    </form>
   );
+}
+
+function groupFoodsByName(foods: FoodItem[]): Array<{ name: string; foods: FoodItem[] }> {
+  const groups = new Map<string, FoodItem[]>();
+  foods.forEach((food) => {
+    const group = groups.get(food.name) ?? [];
+    group.push(food);
+    groups.set(food.name, group);
+  });
+
+  return [...groups.entries()].map(([name, groupFoods]) => ({
+    name,
+    foods: groupFoods.slice().sort((a, b) => a.servingAmount - b.servingAmount || a.servingName.localeCompare(b.servingName)),
+  }));
 }
 
 function DailyPage({ date, records, goal, onDateChange, onDeleted, onUpdated }: { date: string; records: IntakeRecord[]; goal: DailyGoal; onDateChange: (date: string) => void; onDeleted: () => Promise<void>; onUpdated: () => Promise<void> }) {
@@ -599,7 +633,7 @@ function SettingsPage({ goal, settings, onChanged }: { goal: DailyGoal; settings
 
   async function importJson(file?: File) {
     if (!file) return;
-    if (!window.confirm("匯入會覆蓋目前本機資料，確定繼續？")) return;
+    if (!window.confirm("匯入會合併 JSON 備份：相同資料會略過，有差異的項目才會更新。確定繼續？")) return;
     const text = await file.text();
     const payload = validateBackupPayload(JSON.parse(text));
     await repository.importBackup(payload);

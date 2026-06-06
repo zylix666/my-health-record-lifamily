@@ -36,6 +36,7 @@ const validPayload: BackupPayload = {
     enableAfternoonGapCheck: true,
     afternoonGapCheckHour: 16,
     afternoonGapCheckMinute: 0,
+    hasSeededFoods: true,
     createdAt: "2026-05-23T00:00:00.000Z",
     updatedAt: "2026-05-23T00:00:00.000Z",
   },
@@ -44,6 +45,11 @@ const validPayload: BackupPayload = {
 describe("backup validation", () => {
   it("accepts a valid v1 backup", () => {
     expect(validateBackupPayload(validPayload)).toEqual(validPayload);
+  });
+
+  it("accepts backups created before food seed state was tracked", () => {
+    const { hasSeededFoods, ...oldSettings } = validPayload.settings;
+    expect(validateBackupPayload({ ...validPayload, settings: oldSettings })).toEqual({ ...validPayload, settings: oldSettings });
   });
 
   it("rejects unsupported schema versions", () => {

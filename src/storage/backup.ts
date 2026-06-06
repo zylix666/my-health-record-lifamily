@@ -94,6 +94,7 @@ function isSettings(value: unknown): value is AppSettings {
     typeof value.enableAfternoonGapCheck === "boolean" &&
     isNumber(value.afternoonGapCheckHour) &&
     isNumber(value.afternoonGapCheckMinute) &&
+    (value.hasSeededFoods === undefined || typeof value.hasSeededFoods === "boolean") &&
     isString(value.createdAt) &&
     isString(value.updatedAt)
   );

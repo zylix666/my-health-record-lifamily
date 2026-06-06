@@ -1,4 +1,5 @@
 :root {
+  font-size: 17px;
   color: #172321;
   background: #f6fbf8;
   font-family: Inter, "Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -68,14 +69,14 @@ button:disabled {
 
 .topbar h1 {
   margin: 2px 0 0;
-  font-size: 24px;
+  font-size: 25px;
   letter-spacing: 0;
 }
 
 .eyebrow {
   margin: 0;
   color: #5d716c;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -121,7 +122,7 @@ button:disabled {
 
 .hero-panel h2 {
   margin-top: 4px;
-  font-size: 24px;
+  font-size: 25px;
 }
 
 .metric-grid {
@@ -143,7 +144,7 @@ button:disabled {
 
 .metric-card p {
   margin: 10px 0 2px;
-  font-size: 22px;
+  font-size: 23px;
   font-weight: 800;
 }
 
@@ -193,7 +194,7 @@ button:disabled {
 .chart-panel h2,
 .panel h2 {
   margin: 0 0 12px;
-  font-size: 18px;
+  font-size: 19px;
 }
 
 .gap-grid,
@@ -217,7 +218,7 @@ button:disabled {
 .insight-grid span {
   display: block;
   color: #667873;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .gap-grid strong,
@@ -339,7 +340,7 @@ textarea {
 .timeline-item h3,
 .food-row h3 {
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
 }
 
 .timeline-item p,

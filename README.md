@@ -2,6 +2,19 @@
 
 A project that consolidates water, fiber, and protein intake tracking.
 
+## Discussion sessions
+
+Use separate chat sessions for focused frontend changes:
+
+- Today: dashboard, goal progress, reminders, and check-in.
+- Add: food selection and intake record creation.
+- Daily detail: daily record lookup, editing, and deletion.
+- Trends: statistics, charts, and insights.
+- Food library: reusable food item lookup, creation, editing, deletion, and seed food behavior.
+- Settings: goals, backup, data clearing, and PWA status.
+
+Backend integration and shared behavior should stay coordinated across repository, storage, migrations, backups, and cross-page refresh logic.
+
 ## Mobile app mode
 
 The browser URL bar cannot be hidden while the app is opened as a normal Chrome tab. To make it look and behave like an app, install it as a PWA from an HTTPS URL, then launch it from the phone home screen.

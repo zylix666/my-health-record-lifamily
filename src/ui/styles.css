@@ -73,6 +73,14 @@ button:disabled {
   letter-spacing: 0;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .eyebrow {
   margin: 0;
   color: #5d716c;
@@ -91,6 +99,14 @@ button:disabled {
   gap: 14px;
 }
 
+.dashboard-stack {
+  gap: 14px;
+}
+
+.dashboard-stack .hero-panel + .metric-grid {
+  margin-top: -10px;
+}
+
 .panel,
 .hero-panel,
 .metric-card,
@@ -107,11 +123,11 @@ button:disabled {
 }
 
 .hero-panel {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 40%);
   align-items: center;
   gap: 12px;
-  padding: 18px;
+  padding: 14px;
   background: #dff6ee;
 }
 
@@ -125,14 +141,21 @@ button:disabled {
   font-size: 25px;
 }
 
+.hero-panel button {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 4px;
 }
 
 .metric-card {
-  padding: 14px;
+  min-height: 118px;
+  padding: 12px;
 }
 
 .metric-header {
@@ -143,7 +166,7 @@ button:disabled {
 }
 
 .metric-card p {
-  margin: 10px 0 2px;
+  margin: 8px 0 2px;
   font-size: 23px;
   font-weight: 800;
 }
@@ -157,7 +180,7 @@ button:disabled {
 
 .progress {
   height: 8px;
-  margin-top: 12px;
+  margin-top: 10px;
   overflow: hidden;
   border-radius: 999px;
   background: #e9f0ed;
@@ -172,6 +195,7 @@ button:disabled {
 .accent {
   background: #fff7e8;
   border-color: #ead5a8;
+  padding: 16px;
 }
 
 .status-ready {
@@ -208,6 +232,7 @@ button:disabled {
 .gap-grid div,
 .status-grid div,
 .insight-grid div {
+  min-height: 70px;
   padding: 12px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.72);
@@ -226,6 +251,11 @@ button:disabled {
 .insight-grid strong {
   display: block;
   margin-top: 4px;
+  font-size: 16px;
+}
+
+.gap-actions {
+  margin-top: 0;
 }
 
 .quick-actions,
@@ -236,8 +266,15 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
 .quick-actions button {
-  flex: 1;
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
 }
 
 .form-panel {
@@ -475,12 +512,17 @@ textarea {
 
   .hero-panel {
     align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .hero-panel button,
+  .quick-actions,
   .row button {
     width: 100%;
+  }
+
+  .quick-actions {
+    grid-template-columns: 1fr;
   }
 
   .food-row {

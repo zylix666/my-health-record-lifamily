@@ -28,10 +28,15 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
 
   async initialize(): Promise<void> {
     await this.getDailyGoal();
-    await this.getSettings();
+    const existingSettings = await this.db.settings.get("app_settings");
+    const settings = await this.getSettings();
+    const shouldInitialSeed = !settings.hasSeededFoods && !existingSettings;
     const foodCount = await this.db.foods.count();
     if (foodCount === 0) {
-      await this.seedFoods();
+      if (shouldInitialSeed) {
+        await this.seedFoods();
+      }
+      await this.markFoodsSeeded();
       return;
     }
 
@@ -39,10 +44,18 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
     if (isLegacyDemoFoodSet(existingFoods)) {
       await this.db.foods.clear();
       await this.seedFoods();
+      await this.markFoodsSeeded();
       return;
+    } else {
+      await this.removeDuplicateFoods(existingFoods);
     }
 
-    await this.addMissingSeedFoods(existingFoods);
+    if (!settings.hasSeededFoods) {
+      await this.addMissingSeedFoods(await this.db.foods.toArray());
+    } else {
+      await this.removeDuplicateFoods(await this.db.foods.toArray());
+    }
+    await this.markFoodsSeeded();
   }
 
   listFoods(): Promise<FoodItem[]> {
@@ -109,7 +122,9 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
 
   async getSettings(): Promise<AppSettings> {
     const existing = await this.db.settings.get("app_settings");
-    if (existing) return existing;
+    if (existing) {
+      return { ...DEFAULT_APP_SETTINGS, ...existing, hasSeededFoods: existing.hasSeededFoods ?? false };
+    }
     await this.db.settings.put({ ...DEFAULT_APP_SETTINGS });
     return { ...DEFAULT_APP_SETTINGS };
   }
@@ -141,16 +156,19 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
   async importBackup(payload: BackupPayload): Promise<void> {
     const validPayload = validateBackupPayload(payload);
     await this.db.transaction("rw", [this.db.foods, this.db.intakeRecords, this.db.dailyGoal, this.db.dailyCheckIns, this.db.settings], async () => {
-      await this.db.foods.clear();
-      await this.db.intakeRecords.clear();
-      await this.db.dailyGoal.clear();
-      await this.db.dailyCheckIns.clear();
-      await this.db.settings.clear();
-      await this.db.foods.bulkPut(validPayload.foods);
-      await this.db.intakeRecords.bulkPut(validPayload.intakeRecords);
-      await this.db.dailyGoal.put(validPayload.dailyGoal);
-      await this.db.dailyCheckIns.bulkPut(validPayload.dailyCheckIns);
-      await this.db.settings.put(validPayload.settings);
+      await this.mergeFoods(validPayload.foods);
+      await this.mergeById(this.db.intakeRecords, validPayload.intakeRecords);
+      await this.mergeById(this.db.dailyCheckIns, validPayload.dailyCheckIns);
+      const existingGoal = await this.db.dailyGoal.get(validPayload.dailyGoal.id);
+      if (!existingGoal || !sameRecord(existingGoal, validPayload.dailyGoal)) {
+        await this.db.dailyGoal.put(validPayload.dailyGoal);
+      }
+      const importedSettings = { ...validPayload.settings, hasSeededFoods: true };
+      const existingSettings = await this.db.settings.get(importedSettings.id);
+      if (!existingSettings || !sameRecord(existingSettings, importedSettings)) {
+        await this.db.settings.put(importedSettings);
+      }
+      await this.removeDuplicateFoods(await this.db.foods.toArray());
     });
   }
 
@@ -168,7 +186,7 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
   private async seedFoods(): Promise<void> {
     const now = new Date().toISOString();
     await this.db.foods.bulkPut(
-      SEED_FOODS.map((food) => ({
+      uniqueSeedFoods().map((food) => ({
         ...food,
         id: generateId("food"),
         createdAt: now,
@@ -178,9 +196,9 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
   }
 
   private async addMissingSeedFoods(existingFoods: FoodItem[]): Promise<void> {
-    const existingKeys = new Set(existingFoods.map(foodKey));
+    const existingKeys = new Set(existingFoods.map(foodImportKey));
     const now = new Date().toISOString();
-    const missingFoods = SEED_FOODS.filter((food) => !existingKeys.has(foodKey(food))).map((food) => ({
+    const missingFoods = uniqueSeedFoods().filter((food) => !existingKeys.has(foodImportKey(food))).map((food) => ({
       ...food,
       id: generateId("food"),
       createdAt: now,
@@ -190,6 +208,72 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
     if (missingFoods.length > 0) {
       await this.db.foods.bulkPut(missingFoods);
     }
+  }
+
+  private async removeDuplicateFoods(foods: FoodItem[]): Promise<void> {
+    const foodByKey = new Map<string, FoodItem>();
+    const duplicateIds: string[] = [];
+
+    foods
+      .slice()
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+      .forEach((food) => {
+        const key = foodContentKey(food);
+        if (foodByKey.has(key)) {
+          duplicateIds.push(food.id);
+          return;
+        }
+        foodByKey.set(key, food);
+      });
+
+    if (duplicateIds.length > 0) {
+      await this.db.foods.bulkDelete(duplicateIds);
+    }
+  }
+
+  private async mergeFoods(importedFoods: FoodItem[]): Promise<void> {
+    const existingFoods = await this.db.foods.toArray();
+    const existingById = new Map(existingFoods.map((food) => [food.id, food]));
+    const existingByKey = new Map(existingFoods.map((food) => [foodImportKey(food), food]));
+    const pendingByKey = new Map<string, FoodItem>();
+
+    importedFoods.forEach((food) => pendingByKey.set(foodImportKey(food), food));
+
+    for (const importedFood of pendingByKey.values()) {
+      const existingFood = existingByKey.get(foodImportKey(importedFood)) ?? existingById.get(importedFood.id);
+      if (!existingFood) {
+        await this.db.foods.put(importedFood);
+        existingById.set(importedFood.id, importedFood);
+        existingByKey.set(foodImportKey(importedFood), importedFood);
+        continue;
+      }
+
+      const mergedFood = {
+        ...importedFood,
+        id: existingFood.id,
+        createdAt: existingFood.createdAt,
+      };
+      if (!sameFoodContent(existingFood, mergedFood)) {
+        await this.db.foods.put(mergedFood);
+        existingById.set(mergedFood.id, mergedFood);
+        existingByKey.set(foodImportKey(mergedFood), mergedFood);
+      }
+    }
+  }
+
+  private async mergeById<T extends { id: string }>(table: Table<T, string>, importedRecords: T[]): Promise<void> {
+    for (const importedRecord of importedRecords) {
+      const existingRecord = await table.get(importedRecord.id);
+      if (!existingRecord || !sameRecord(existingRecord, importedRecord)) {
+        await table.put(importedRecord);
+      }
+    }
+  }
+
+  private async markFoodsSeeded(): Promise<void> {
+    const settings = await this.getSettings();
+    if (settings.hasSeededFoods) return;
+    await this.saveSettings({ ...settings, hasSeededFoods: true, updatedAt: new Date().toISOString() });
   }
 }
 
@@ -203,8 +287,56 @@ function isLegacyDemoFoodSet(foods: FoodItem[]): boolean {
   return foods.every((food) => legacyNames.has(food.name));
 }
 
-function foodKey(food: Pick<FoodItem, "name" | "category" | "servingName">): string {
-  return `${food.category}::${food.name}::${food.servingName}`;
+function uniqueSeedFoods(): Omit<FoodItem, "id" | "createdAt" | "updatedAt">[] {
+  const foodByKey = new Map<string, Omit<FoodItem, "id" | "createdAt" | "updatedAt">>();
+  SEED_FOODS.forEach((food) => {
+    foodByKey.set(foodContentKey(food), food);
+  });
+  return [...foodByKey.values()];
+}
+
+function foodContentKey(food: Omit<FoodItem, "id" | "createdAt" | "updatedAt">): string {
+  return [
+    food.category,
+    food.name.trim(),
+    food.servingName.trim(),
+    food.servingAmount,
+    food.servingUnit,
+    food.waterMl,
+    food.fiberG,
+    food.proteinG,
+    food.note ?? "",
+  ].join("::");
+}
+
+function foodImportKey(food: Pick<FoodItem, "category" | "name" | "servingName">): string {
+  return [
+    food.category,
+    food.name.trim(),
+    food.servingName.trim(),
+  ].join("::");
+}
+
+function sameFoodContent(a: FoodItem, b: FoodItem): boolean {
+  return foodContentKey(a) === foodContentKey(b);
+}
+
+function sameRecord<T>(a: T, b: T): boolean {
+  return JSON.stringify(sortObjectKeys(a)) === JSON.stringify(sortObjectKeys(b));
+}
+
+function sortObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortObjectKeys);
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, childValue]) => [key, sortObjectKeys(childValue)]),
+    );
+  }
+  return value;
 }
 
 export const repository = new DexieHealthRecordRepository();

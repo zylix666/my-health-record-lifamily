@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -31,6 +31,7 @@ import {
 import { addDays, formatHour, generateId, toDateKey } from "../utils/date";
 
 type Page = "dashboard" | "add" | "daily" | "charts" | "foods" | "settings";
+type ToastMessage = { id: number; text: string };
 
 type AppState = {
   foods: FoodItem[];
@@ -54,7 +55,8 @@ export function App() {
     settings: DEFAULT_APP_SETTINGS,
   });
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const toastIdRef = useRef(0);
 
   async function refresh(date = selectedDate) {
     const currentDate = today();
@@ -76,6 +78,11 @@ export function App() {
   useEffect(() => {
     if (!loading) refresh(selectedDate);
   }, [selectedDate]);
+
+  function showToast(text: string) {
+    toastIdRef.current += 1;
+    setToast({ id: toastIdRef.current, text });
+  }
 
   const pageTitle = {
     dashboard: "今日狀態",
@@ -105,7 +112,14 @@ export function App() {
         </div>
       </header>
 
-      {message && <div className="toast">{message}</div>}
+      {toast && (
+        <Toast
+          key={toast.id}
+          text={toast.text}
+          durationSeconds={state.settings.toastDurationSeconds}
+          onDismiss={() => setToast(null)}
+        />
+      )}
 
       <main className="content">
         {loading ? (
@@ -117,7 +131,7 @@ export function App() {
                 state={state}
                 onNavigate={setPage}
                 onRefresh={refresh}
-                onMessage={setMessage}
+                onMessage={showToast}
               />
             )}
             {page === "add" && (
@@ -125,7 +139,7 @@ export function App() {
                 foods={state.foods}
                 onSaved={async () => {
                   await refresh();
-                  setMessage("已新增攝取紀錄");
+                  showToast("已新增攝取紀錄");
                   setPage("dashboard");
                 }}
               />
@@ -138,11 +152,11 @@ export function App() {
                 onDateChange={setSelectedDate}
                 onDeleted={async () => {
                   await refresh();
-                  setMessage("已刪除紀錄");
+                  showToast("已刪除紀錄");
                 }}
                 onUpdated={async () => {
                   await refresh();
-                  setMessage("已更新紀錄");
+                  showToast("已更新紀錄");
                 }}
               />
             )}
@@ -152,7 +166,7 @@ export function App() {
                 foods={state.foods}
                 onChanged={async () => {
                   await refresh();
-                  setMessage("食物庫已更新");
+                  showToast("食物庫已更新");
                 }}
               />
             )}
@@ -162,7 +176,7 @@ export function App() {
                 settings={state.settings}
                 onChanged={async () => {
                   await refresh();
-                  setMessage("設定已更新");
+                  showToast("設定已更新");
                 }}
               />
             )}
@@ -281,6 +295,35 @@ function Metric({ label, value, target, percent }: { label: string; value: strin
 
 function Gap({ label, value }: { label: string; value: string }) {
   return <div><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function normalizeToastDuration(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_APP_SETTINGS.toastDurationSeconds;
+  return Math.max(1, Math.min(120, Math.round(value)));
+}
+
+export function Toast({
+  text,
+  durationSeconds,
+  onDismiss,
+}: {
+  text: string;
+  durationSeconds: number;
+  onDismiss: () => void;
+}) {
+  const onDismissRef = useRef(onDismiss);
+
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
+  useEffect(() => {
+    const seconds = normalizeToastDuration(durationSeconds);
+    const timer = window.setTimeout(() => onDismissRef.current(), seconds * 1000);
+    return () => window.clearTimeout(timer);
+  }, [durationSeconds]);
+
+  return <div className="toast" role="status" aria-live="polite">{text}</div>;
 }
 
 function AddPage({ foods, onSaved }: { foods: FoodItem[]; onSaved: () => Promise<void> }) {
@@ -616,7 +659,7 @@ function SettingsPage({ goal, settings, onChanged }: { goal: DailyGoal; settings
   async function save() {
     const now = new Date().toISOString();
     await repository.saveDailyGoal({ ...goalDraft, updatedAt: now });
-    await repository.saveSettings({ ...settingsDraft, updatedAt: now });
+    await repository.saveSettings({ ...settingsDraft, toastDurationSeconds: normalizeToastDuration(settingsDraft.toastDurationSeconds), updatedAt: now });
     await onChanged();
   }
 
@@ -652,6 +695,9 @@ function SettingsPage({ goal, settings, onChanged }: { goal: DailyGoal; settings
         <label className="toggle">
           <input type="checkbox" checked={settingsDraft.enableAfternoonGapCheck} onChange={(event) => setSettingsDraft({ ...settingsDraft, enableAfternoonGapCheck: event.target.checked })} />
           啟用 16:00 缺口檢查
+        </label>
+        <label>通知顯示秒數
+          <input min="1" max="120" step="1" type="number" value={settingsDraft.toastDurationSeconds} onChange={(event) => setSettingsDraft({ ...settingsDraft, toastDurationSeconds: Number(event.target.value) })} />
         </label>
         <button type="button" onClick={save}>儲存設定</button>
         <div className="divider" />

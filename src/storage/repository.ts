@@ -163,7 +163,7 @@ export class DexieHealthRecordRepository implements HealthRecordRepository {
       if (!existingGoal || !sameRecord(existingGoal, validPayload.dailyGoal)) {
         await this.db.dailyGoal.put(validPayload.dailyGoal);
       }
-      const importedSettings = { ...validPayload.settings, hasSeededFoods: true };
+      const importedSettings = { ...DEFAULT_APP_SETTINGS, ...validPayload.settings, hasSeededFoods: true };
       const existingSettings = await this.db.settings.get(importedSettings.id);
       if (!existingSettings || !sameRecord(existingSettings, importedSettings)) {
         await this.db.settings.put(importedSettings);

@@ -37,6 +37,7 @@ const validPayload: BackupPayload = {
     afternoonGapCheckHour: 16,
     afternoonGapCheckMinute: 0,
     hasSeededFoods: true,
+    toastDurationSeconds: 10,
     createdAt: "2026-05-23T00:00:00.000Z",
     updatedAt: "2026-05-23T00:00:00.000Z",
   },
@@ -48,7 +49,7 @@ describe("backup validation", () => {
   });
 
   it("accepts backups created before food seed state was tracked", () => {
-    const { hasSeededFoods, ...oldSettings } = validPayload.settings;
+    const { hasSeededFoods, toastDurationSeconds, ...oldSettings } = validPayload.settings;
     expect(validateBackupPayload({ ...validPayload, settings: oldSettings })).toEqual({ ...validPayload, settings: oldSettings });
   });
 

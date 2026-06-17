@@ -77,6 +77,13 @@ export function App() {
     if (!loading) refresh(selectedDate);
   }, [selectedDate]);
 
+  useEffect(() => {
+    if (!message) return;
+    const seconds = normalizeToastDuration(state.settings.toastDurationSeconds);
+    const timer = window.setTimeout(() => setMessage(""), seconds * 1000);
+    return () => window.clearTimeout(timer);
+  }, [message, state.settings.toastDurationSeconds]);
+
   const pageTitle = {
     dashboard: "今日狀態",
     add: "新增紀錄",
@@ -281,6 +288,11 @@ function Metric({ label, value, target, percent }: { label: string; value: strin
 
 function Gap({ label, value }: { label: string; value: string }) {
   return <div><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function normalizeToastDuration(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_APP_SETTINGS.toastDurationSeconds;
+  return Math.max(1, Math.min(120, Math.round(value)));
 }
 
 function AddPage({ foods, onSaved }: { foods: FoodItem[]; onSaved: () => Promise<void> }) {
@@ -616,7 +628,7 @@ function SettingsPage({ goal, settings, onChanged }: { goal: DailyGoal; settings
   async function save() {
     const now = new Date().toISOString();
     await repository.saveDailyGoal({ ...goalDraft, updatedAt: now });
-    await repository.saveSettings({ ...settingsDraft, updatedAt: now });
+    await repository.saveSettings({ ...settingsDraft, toastDurationSeconds: normalizeToastDuration(settingsDraft.toastDurationSeconds), updatedAt: now });
     await onChanged();
   }
 
@@ -652,6 +664,9 @@ function SettingsPage({ goal, settings, onChanged }: { goal: DailyGoal; settings
         <label className="toggle">
           <input type="checkbox" checked={settingsDraft.enableAfternoonGapCheck} onChange={(event) => setSettingsDraft({ ...settingsDraft, enableAfternoonGapCheck: event.target.checked })} />
           啟用 16:00 缺口檢查
+        </label>
+        <label>通知顯示秒數
+          <input min="1" max="120" step="1" type="number" value={settingsDraft.toastDurationSeconds} onChange={(event) => setSettingsDraft({ ...settingsDraft, toastDurationSeconds: Number(event.target.value) })} />
         </label>
         <button type="button" onClick={save}>儲存設定</button>
         <div className="divider" />

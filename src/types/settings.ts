@@ -8,6 +8,7 @@ export type AppSettings = {
   afternoonGapCheckHour: 16;
   afternoonGapCheckMinute: 0;
   hasSeededFoods: boolean;
+  toastDurationSeconds: number;
 
   createdAt: string;
   updatedAt: string;
@@ -20,6 +21,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   afternoonGapCheckHour: 16,
   afternoonGapCheckMinute: 0,
   hasSeededFoods: false,
+  toastDurationSeconds: 10,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

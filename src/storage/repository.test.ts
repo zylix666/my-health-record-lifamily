@@ -116,6 +116,7 @@ describe("DexieHealthRecordRepository", () => {
       afternoonGapCheckHour: 16,
       afternoonGapCheckMinute: 0,
       hasSeededFoods: true,
+      toastDurationSeconds: 10,
       createdAt: "2026-05-23T00:00:00.000Z",
       updatedAt: "2026-05-23T00:00:00.000Z",
     });
@@ -235,6 +236,7 @@ function testBackup(overrides: Partial<BackupPayload> = {}): BackupPayload {
       afternoonGapCheckHour: 16,
       afternoonGapCheckMinute: 0,
       hasSeededFoods: true,
+      toastDurationSeconds: 10,
       createdAt: "2026-05-24T00:00:00.000Z",
       updatedAt: "2026-05-24T00:00:00.000Z",
     },

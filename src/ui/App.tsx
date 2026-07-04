@@ -5,6 +5,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -137,10 +138,19 @@ export function App() {
             {page === "add" && (
               <AddPage
                 foods={state.foods}
-                onSaved={async () => {
-                  await refresh();
-                  showToast("已新增攝取紀錄");
-                  setPage("dashboard");
+                onSaved={async (recordDate) => {
+                  const currentDate = today();
+                  if (recordDate === currentDate) {
+                    await refresh();
+                    showToast("已新增今日攝取紀錄");
+                    setPage("dashboard");
+                    return;
+                  }
+
+                  setSelectedDate(recordDate);
+                  await refresh(recordDate);
+                  showToast(`已新增 ${recordDate} 的攝取紀錄`);
+                  setPage("daily");
                 }}
               />
             )}
@@ -326,7 +336,8 @@ export function Toast({
   return <div className="toast" role="status" aria-live="polite">{text}</div>;
 }
 
-function AddPage({ foods, onSaved }: { foods: FoodItem[]; onSaved: () => Promise<void> }) {
+function AddPage({ foods, onSaved }: { foods: FoodItem[]; onSaved: (recordDate: string) => Promise<void> }) {
+  const [recordDate, setRecordDate] = useState(today());
   const [hour, setHour] = useState(new Date().getHours());
   const [category, setCategory] = useState<FoodCategory | "">("");
   const [foodName, setFoodName] = useState("");
@@ -341,12 +352,12 @@ function AddPage({ foods, onSaved }: { foods: FoodItem[]; onSaved: () => Promise
 
   async function save(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    if (!selectedFood || quantity <= 0) return;
+    if (!recordDate || !selectedFood || quantity <= 0) return;
     const nowIso = new Date().toISOString();
     await repository.saveIntakeRecord(
       createIntakeRecordFromFood({
         id: generateId("intake"),
-        date: today(),
+        date: recordDate,
         hour,
         food: selectedFood,
         quantity,
@@ -354,11 +365,14 @@ function AddPage({ foods, onSaved }: { foods: FoodItem[]; onSaved: () => Promise
         nowIso,
       }),
     );
-    await onSaved();
+    await onSaved(recordDate);
   }
 
   return (
     <form id="add-intake-form" className="panel form-panel" onSubmit={save}>
+      <label>日期
+        <input max={today()} required type="date" value={recordDate} onChange={(event) => setRecordDate(event.target.value)} />
+      </label>
       <label>時間
         <select value={hour} onChange={(event) => setHour(Number(event.target.value))}>
           {Array.from({ length: 24 }, (_, index) => <option key={index} value={index}>{formatHour(index)}</option>)}
@@ -591,25 +605,29 @@ function ChartsPage({ goal }: { goal: DailyGoal }) {
   const chartData = useMemo(() => Array.from({ length: 30 }, (_, index) => {
     const date = addDays(currentDate, index - 29);
     const total = calculateDailyTotal(date, records);
-    return { ...total, date: date.slice(5), achieved: total.waterMl >= goal.waterMl && total.fiberG >= goal.fiberG && total.proteinG >= goal.proteinG ? 1 : 0 };
+    const progress = calculateGoalProgress(total, goal);
+    return { ...total, ...progress, date: date.slice(5), achieved: total.waterMl >= goal.waterMl && total.fiberG >= goal.fiberG && total.proteinG >= goal.proteinG ? 1 : 0 };
   }), [records, goal, currentDate]);
   const last7 = chartData.slice(-7);
-  const avg7 = averageTotals(last7);
-  const achievement14 = Math.round((chartData.slice(-14).filter((item) => item.achieved).length / 14) * 100);
-  const insufficient = mostInsufficient(chartData.slice(-14), goal);
-  const frequent = mostFrequentFoods(records);
+  const completeChartData = chartData.slice(0, -1);
+  const last7Complete = completeChartData.slice(-7);
+  const last14Complete = completeChartData.slice(-14);
+  const avg7 = averageTotals(last7Complete);
+  const achievement14 = Math.round((last14Complete.filter((item) => item.achieved).length / last14Complete.length) * 100);
+  const insufficient = mostInsufficient(last14Complete, goal);
+  const frequent = mostFrequentFoods(records.filter((record) => record.date < currentDate));
 
   return (
     <section className="stack">
-      <ChartPanel title="7 天趨勢" data={last7} />
-      <ChartPanel title="30 天趨勢" data={chartData} />
+      <ChartPanel title="7 天達標趨勢" data={last7} />
+      <ChartPanel title="30 天達標趨勢" data={chartData} />
       <div className="panel">
         <h2>洞察</h2>
         <div className="insight-grid">
-          <Gap label="7 天平均水分" value={`${avg7.waterMl} ml`} />
-          <Gap label="7 天平均纖維" value={`${avg7.fiberG} g`} />
-          <Gap label="7 天平均蛋白質" value={`${avg7.proteinG} g`} />
-          <Gap label="14 天達標率" value={`${achievement14}%`} />
+          <Gap label="近 7 個完整日平均水分" value={`${avg7.waterMl} ml`} />
+          <Gap label="近 7 個完整日平均纖維" value={`${avg7.fiberG} g`} />
+          <Gap label="近 7 個完整日平均蛋白質" value={`${avg7.proteinG} g`} />
+          <Gap label="近 14 個完整日達標率" value={`${achievement14}%`} />
           <Gap label="常不足項目" value={insufficient} />
           <Gap label="常吃食物" value={frequent || "尚無資料"} />
         </div>
@@ -638,11 +656,12 @@ function ChartPanel({ title, data }: { title: string; data: Array<Record<string,
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Line type="monotone" dataKey="waterMl" stroke="#18736f" name="水 ml" dot={false} />
-          <Line type="monotone" dataKey="fiberG" stroke="#b15f20" name="纖維 g" />
-          <Line type="monotone" dataKey="proteinG" stroke="#315f9f" name="蛋白質 g" />
+          <YAxis domain={[0, (dataMax: number) => Math.max(120, Math.ceil(dataMax / 25) * 25)]} tickFormatter={(value) => `${value}%`} />
+          <Tooltip formatter={(value, name) => [`${value}%`, name]} />
+          <ReferenceLine y={100} stroke="#6b7280" strokeDasharray="4 4" label="100%" />
+          <Line type="monotone" dataKey="waterPercent" stroke="#18736f" name="水分達標率" dot={false} />
+          <Line type="monotone" dataKey="fiberPercent" stroke="#b15f20" name="纖維達標率" />
+          <Line type="monotone" dataKey="proteinPercent" stroke="#315f9f" name="蛋白質達標率" />
         </LineChart>
       </ResponsiveContainer>
     </div>
